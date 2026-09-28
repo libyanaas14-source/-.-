@@ -1,9 +1,18 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
+});
 
 // آيديك وآيدي صديقك (تستخدمون كل الأوامر)
 const ALLOWED_USERS = ["1489281825942667355", "1476270096296050730"];
 
-// آيديات مخصصة لأوامر معينة حسب طلبك
+// آيديات مخصصة لأوامر معينة
 const PROMOTION_USER_ID = "1543460225208549416";
 const CHANNEL_LOCK_USER_ID = "1551588105750847558";
 
@@ -28,154 +37,193 @@ const roleHierarchy = [
     '1552480375421538486', '1552480389250031676'
 ];
 
-module.exports = [
+const commandsArray = [
     // 1. أمر (ق) - قفل الروم
-    {
-        data: new SlashCommandBuilder().setName('ق').setDescription('قفل الروم الحالي'),
-        async execute(interaction) {
-            if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== CHANNEL_LOCK_USER_ID) {
-                return interaction.reply({ content: '❌ عذراً، هذا الأمر ليس مخصصاً لك!', ephemeral: true });
-            }
-            const channel = interaction.channel;
-            const everyoneRole = interaction.guild.roles.everyone;
-
-            const currentPerm = channel.permissionsFor(everyoneRole).has(PermissionFlagsBits.SendMessages);
-            if (!currentPerm) {
-                return interaction.reply({ content: '___هذا الروم مقفول بالفعل___', ephemeral: true });
-            }
-
-            await channel.permissionOverwrites.edit(everyoneRole, { SendMessages: false });
-            return interaction.reply({ content: `___تم قفل الروم بواسطة ${interaction.user} بنجاح✓___` });
-        }
-    },
-
+    new SlashCommandBuilder().setName('ق').setDescription('قفل الروم الحالي'),
     // 2. أمر (ف) - فتح الروم
-    {
-        data: new SlashCommandBuilder().setName('ف').setDescription('فتح الروم الحالي'),
-        async execute(interaction) {
-            if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== CHANNEL_LOCK_USER_ID) {
-                return interaction.reply({ content: '❌ عذراً، هذا الأمر ليس مخصصاً لك!', ephemeral: true });
-            }
-            const channel = interaction.channel;
-            const everyoneRole = interaction.guild.roles.everyone;
-
-            const currentPerm = channel.permissionsFor(everyoneRole).has(PermissionFlagsBits.SendMessages);
-            if (currentPerm) {
-                return interaction.reply({ content: '___هذا الروم مفتوح بالفعل___', ephemeral: true });
-            }
-
-            await channel.permissionOverwrites.edit(everyoneRole, { SendMessages: null });
-            return interaction.reply({ content: `___تم فتح الروم بواسطة ${interaction.user} بنجاح✓___` });
-        }
-    },
-
+    new SlashCommandBuilder().setName('ف').setDescription('فتح الروم الحالي'),
     // 3. أمر (تف) - بان
-    {
-        data: new SlashCommandBuilder()
-            .setName('تف')
-            .setDescription('حظر شخص من السيرفر')
-            .addUserOption(option => option.setName('user').setDescription('العضو المراد حظره').setRequired(true)),
-        async execute(interaction) {
-            if (!ALLOWED_USERS.includes(interaction.user.id)) {
-                return interaction.reply({ content: '❌ هذا الأمر مخصص لك ولصديقك فقط!', ephemeral: true });
-            }
-            const user = interaction.options.getUser('user');
-            const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+    new SlashCommandBuilder()
+        .setName('تف')
+        .setDescription('حظر شخص من السيرفر')
+        .addUserOption(option => option.setName('user').setDescription('العضو المراد حظره').setRequired(true)),
+    // 4. أمر (فك-بان) - إلغاء الحظر
+    new SlashCommandBuilder()
+        .setName('فك-بان')
+        .setDescription('إلغاء حظر شخص من السيرفر')
+        .addStringOption(option => option.setName('userid').setDescription('آيدي العضو المراد فك البان عنه').setRequired(true)),
+    // 5. أمر (ترقيه)
+    new SlashCommandBuilder()
+        .setName('ترقيه')
+        .setDescription('ترقية إداري لرتبة أعلى')
+        .addUserOption(option => option.setName('user').setDescription('العضو الإداري').setRequired(true))
+        .addIntegerOption(option => option.setName('steps').setDescription('عدد خطوات الترقية').setRequired(true)),
+    // 6. أمر (تخفيض)
+    new SlashCommandBuilder()
+        .setName('تخفيض')
+        .setDescription('تخفيض إداري لرتبة أقل')
+        .addUserOption(option => option.setName('user').setDescription('العضو الإداري').setRequired(true))
+        .addIntegerOption(option => option.setName('steps').setDescription('عدد خطوات التخفيض').setRequired(true))
+].map(command => command.toJSON());
 
-            if (!member) {
-                return interaction.reply({ content: '❌ هذا العضو غير موجود في السيرفر!', ephemeral: true });
-            }
+client.once('ready', async () => {
+    console.log(`✅ تم تسجيل الدخول بنجاح باسم ${client.user.tag}!`);
 
-            await member.ban({ reason: `بواسطة ${interaction.user.tag}` });
-            return interaction.reply({ content: `___ختفووووووووووووووو ${user}___` });
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+    try {
+        console.log('Started refreshing application (/) commands.');
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commandsArray },
+        );
+        console.log('Successfully reloaded application (/) commands.');
+    } catch (error) {
+        console.error(error);
+    }
+});
+
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    const { commandName } = interaction;
+
+    // 1. قفل الروم
+    if (commandName === 'ق') {
+        if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== CHANNEL_LOCK_USER_ID) {
+            return interaction.reply({ content: '❌ عذراً، هذا الأمر ليس مخصصاً لك!', ephemeral: true });
         }
-    },
+        const channel = interaction.channel;
+        const everyoneRole = interaction.guild.roles.everyone;
 
-    // 4. أمر (ترقيه)
-    {
-        data: new SlashCommandBuilder()
-            .setName('ترقيه')
-            .setDescription('ترقية إداري لرتبة أعلى')
-            .addUserOption(option => option.setName('user').setDescription('العضو الإداري').setRequired(true))
-            .addIntegerOption(option => option.setName('steps').setDescription('عدد خطوات الترقية').setRequired(true)),
-        async execute(interaction) {
-            if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== PROMOTION_USER_ID) {
-                return interaction.reply({ content: '❌ عذراً، أمر الترقية غير متاح لك!', ephemeral: true });
-            }
-            const user = interaction.options.getUser('user');
-            const steps = interaction.options.getInteger('steps');
-            const member = await interaction.guild.members.fetch(user.id);
-
-            let currentIndex = -1;
-            let currentRoleId = null;
-            for (let i = 0; i < roleHierarchy.length; i++) {
-                if (member.roles.cache.has(roleHierarchy[i])) {
-                    currentIndex = i;
-                    currentRoleId = roleHierarchy[i];
-                    break;
-                }
-            }
-
-            if (currentIndex === -1) {
-                return interaction.reply({ content: '❌ هذا الشخص ليس لديه أي رتبة إدارية مسجلة في القائمة!', ephemeral: true });
-            }
-
-            const newIndex = Math.min(currentIndex + steps, roleHierarchy.length - 1);
-            const newRoleId = roleHierarchy[newIndex];
-
-            const oldRole = interaction.guild.roles.cache.get(currentRoleId);
-            const newRole = interaction.guild.roles.cache.get(newRoleId);
-
-            await member.roles.remove(oldRole);
-            await member.roles.add(newRole);
-
-            return interaction.reply({
-                content: `___تمت ترقية الاداري ${user}\n\nمن رتبة ${oldRole}\n\nالى رتبة ${newRole}\n\nبنجاح✓___`
-            });
+        const currentPerm = channel.permissionsFor(everyoneRole).has(PermissionFlagsBits.SendMessages);
+        if (!currentPerm) {
+            return interaction.reply({ content: '___هذا الروم مقفول بالفعل___', ephemeral: true });
         }
-    },
 
-    // 5. أمر (تخفيض)
-    {
-        data: new SlashCommandBuilder()
-            .setName('تخفيض')
-            .setDescription('تخفيض إداري لرتبة أقل')
-            .addUserOption(option => option.setName('user').setDescription('العضو الإداري').setRequired(true))
-            .addIntegerOption(option => option.setName('steps').setDescription('عدد خطوات التخفيض').setRequired(true)),
-        async execute(interaction) {
-            if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== PROMOTION_USER_ID) {
-                return interaction.reply({ content: '❌ عذراً، أمر التخفيض غير متاح لك!', ephemeral: true });
-            }
-            const user = interaction.options.getUser('user');
-            const steps = interaction.options.getInteger('steps');
-            const member = await interaction.guild.members.fetch(user.id);
+        await channel.permissionOverwrites.edit(everyoneRole, { SendMessages: false });
+        return interaction.reply({ content: `___تم قفل الروم بواسطة ${interaction.user} بنجاح✓___` });
+    }
 
-            let currentIndex = -1;
-            let currentRoleId = null;
-            for (let i = 0; i < roleHierarchy.length; i++) {
-                if (member.roles.cache.has(roleHierarchy[i])) {
-                    currentIndex = i;
-                    currentRoleId = roleHierarchy[i];
-                    break;
-                }
-            }
+    // 2. فتح الروم
+    if (commandName === 'ف') {
+        if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== CHANNEL_LOCK_USER_ID) {
+            return interaction.reply({ content: '❌ عذراً، هذا الأمر ليس مخصصاً لك!', ephemeral: true });
+        }
+        const channel = interaction.channel;
+        const everyoneRole = interaction.guild.roles.everyone;
 
-            if (currentIndex === -1) {
-                return interaction.reply({ content: '❌ هذا الشخص ليس لديه أي رتبة إدارية مسجلة في القائمة!', ephemeral: true });
-            }
+        const currentPerm = channel.permissionsFor(everyoneRole).has(PermissionFlagsBits.SendMessages);
+        if (currentPerm) {
+            return interaction.reply({ content: '___هذا الروم مفتوح بالفعل___', ephemeral: true });
+        }
 
-            const newIndex = Math.max(currentIndex - steps, 0);
-            const newRoleId = roleHierarchy[newIndex];
+        await channel.permissionOverwrites.edit(everyoneRole, { SendMessages: null });
+        return interaction.reply({ content: `___تم فتح الروم بواسطة ${interaction.user} بنجاح✓___` });
+    }
 
-            const oldRole = interaction.guild.roles.cache.get(currentRoleId);
-            const newRole = interaction.guild.roles.cache.get(newRoleId);
+    // 3. بان (تف)
+    if (commandName === 'تف') {
+        if (!ALLOWED_USERS.includes(interaction.user.id)) {
+            return interaction.reply({ content: '❌ هذا الأمر مخصص لك ولصديقك فقط!', ephemeral: true });
+        }
+        const user = interaction.options.getUser('user');
+        const member = await interaction.guild.members.fetch(user.id).catch(() => null);
 
-            await member.roles.remove(oldRole);
-            await member.roles.add(newRole);
+        if (!member) {
+            return interaction.reply({ content: '❌ هذا العضو غير موجود في السيرفر!', ephemeral: true });
+        }
 
-            return interaction.reply({
-                content: `___تم تخفيض الاداري ${user}\n\nمن رتبة ${oldRole}\n\nالى رتبة ${newRole}\n\nبنجاح✓___`
-            });
+        await member.ban({ reason: `بواسطة ${interaction.user.tag}` });
+        return interaction.reply({ content: `___ختفووووووووووووووو ${user}___` });
+    }
+
+    // 4. فك البان (فك-بان)
+    if (commandName === 'فك-بان') {
+        if (!ALLOWED_USERS.includes(interaction.user.id)) {
+            return interaction.reply({ content: '❌ هذا الأمر مخصص لك ولصديقك فقط!', ephemeral: true });
+        }
+        const userId = interaction.options.getString('userid');
+        try {
+            await interaction.guild.members.unban(userId);
+            return interaction.reply({ content: `___تم فك البان عن العضو بنجاح✓___` });
+        } catch (error) {
+            return interaction.reply({ content: '❌ حدث خطأ، تأكد من صحة الآيدي أو أن الشخص محظور بالفعل.', ephemeral: true });
         }
     }
-];
+
+    // 5. ترقيه
+    if (commandName === 'ترقيه') {
+        if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== PROMOTION_USER_ID) {
+            return interaction.reply({ content: '❌ عذراً، أمر الترقية غير متاح لك!', ephemeral: true });
+        }
+        const user = interaction.options.getUser('user');
+        const steps = interaction.options.getInteger('steps');
+        const member = await interaction.guild.members.fetch(user.id);
+
+        let currentIndex = -1;
+        let currentRoleId = null;
+        for (let i = 0; i < roleHierarchy.length; i++) {
+            if (member.roles.cache.has(roleHierarchy[i])) {
+                currentIndex = i;
+                currentRoleId = roleHierarchy[i];
+                break;
+            }
+        }
+
+        if (currentIndex === -1) {
+            return interaction.reply({ content: '❌ هذا الشخص ليس لديه أي رتبة إدارية مسجلة في القائمة!', ephemeral: true });
+        }
+
+        const newIndex = Math.min(currentIndex + steps, roleHierarchy.length - 1);
+        const newRoleId = roleHierarchy[newIndex];
+
+        const oldRole = interaction.guild.roles.cache.get(currentRoleId);
+        const newRole = interaction.guild.roles.cache.get(newRoleId);
+
+        await member.roles.remove(oldRole);
+        await member.roles.add(newRole);
+
+        return interaction.reply({
+            content: `___تمت ترقية الاداري ${user}\n\nمن رتبة ${oldRole}\n\nالى رتبة ${newRole}\n\nبنجاح✓___`
+        });
+    }
+
+    // 6. تخفيض
+    if (commandName === 'تخفيض') {
+        if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== PROMOTION_USER_ID) {
+            return interaction.reply({ content: '❌ عذراً، أمر التخفيض غير متاح لك!', ephemeral: true });
+        }
+        const user = interaction.options.getUser('user');
+        const steps = interaction.options.getInteger('steps');
+        const member = await interaction.guild.members.fetch(user.id);
+
+        let currentIndex = -1;
+        let currentRoleId = null;
+        for (let i = 0; i < roleHierarchy.length; i++) {
+            if (member.roles.cache.has(roleHierarchy[i])) {
+                currentIndex = i;
+                currentRoleId = roleHierarchy[i];
+                break;
+            }
+        }
+
+        if (currentIndex === -1) {
+            return interaction.reply({ content: '❌ هذا الشخص ليس لديه أي رتبة إدارية مسجلة في القائمة!', ephemeral: true });
+        }
+
+        const newIndex = Math.max(currentIndex - steps, 0);
+        const newRoleId = roleHierarchy[newIndex];
+
+        const oldRole = interaction.guild.roles.cache.get(currentRoleId);
+        const newRole = interaction.guild.roles.cache.get(newRoleId);
+
+        await member.roles.remove(oldRole);
+        await member.roles.add(newRole);
+
+        return interaction.reply({
+            content: `___تم تخفيض الاداري ${user}\n\nمن رتبة ${oldRole}\n\nالى رتبة ${newRole}\n\nبنجاح✓___`
+        });
+    }
+});
+
+client.login(process.env.DISCORD_TOKEN);
