@@ -38,27 +38,21 @@ const roleHierarchy = [
 ];
 
 const commandsArray = [
-    // 1. أمر (ق) - قفل الروم
     new SlashCommandBuilder().setName('ق').setDescription('قفل الروم الحالي'),
-    // 2. أمر (ف) - فتح الروم
     new SlashCommandBuilder().setName('ف').setDescription('فتح الروم الحالي'),
-    // 3. أمر (تف) - بان
     new SlashCommandBuilder()
         .setName('تف')
         .setDescription('حظر شخص من السيرفر')
         .addUserOption(option => option.setName('user').setDescription('العضو المراد حظره').setRequired(true)),
-    // 4. أمر (فك-بان) - إلغاء الحظر
     new SlashCommandBuilder()
         .setName('فك-بان')
         .setDescription('إلغاء حظر شخص من السيرفر')
         .addStringOption(option => option.setName('userid').setDescription('آيدي العضو المراد فك البان عنه').setRequired(true)),
-    // 5. أمر (ترقيه)
     new SlashCommandBuilder()
         .setName('ترقيه')
         .setDescription('ترقية إداري لرتبة أعلى')
         .addUserOption(option => option.setName('user').setDescription('العضو الإداري').setRequired(true))
         .addIntegerOption(option => option.setName('steps').setDescription('عدد خطوات الترقية').setRequired(true)),
-    // 6. أمر (تخفيض)
     new SlashCommandBuilder()
         .setName('تخفيض')
         .setDescription('تخفيض إداري لرتبة أقل')
@@ -69,7 +63,7 @@ const commandsArray = [
 client.once('ready', async () => {
     console.log(`✅ تم تسجيل الدخول بنجاح باسم ${client.user.tag}!`);
 
-    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+    const rest = new REST({ version: '10' }).setToken("MTU1MzIwMzgwNzg4MDc0MDkyNA.GS_hEe.qPKMqjRT8fxaOAarKfgmlsE2Iuq3lP_j47ixC4");
     try {
         console.log('Started refreshing application (/) commands.');
         await rest.put(
@@ -87,7 +81,6 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName } = interaction;
 
-    // 1. قفل الروم
     if (commandName === 'ق') {
         if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== CHANNEL_LOCK_USER_ID) {
             return interaction.reply({ content: '❌ عذراً، هذا الأمر ليس مخصصاً لك!', ephemeral: true });
@@ -104,7 +97,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: `___تم قفل الروم بواسطة ${interaction.user} بنجاح✓___` });
     }
 
-    // 2. فتح الروم
     if (commandName === 'ف') {
         if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== CHANNEL_LOCK_USER_ID) {
             return interaction.reply({ content: '❌ عذراً، هذا الأمر ليس مخصصاً لك!', ephemeral: true });
@@ -121,7 +113,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: `___تم فتح الروم بواسطة ${interaction.user} بنجاح✓___` });
     }
 
-    // 3. بان (تف)
     if (commandName === 'تف') {
         if (!ALLOWED_USERS.includes(interaction.user.id)) {
             return interaction.reply({ content: '❌ هذا الأمر مخصص لك ولصديقك فقط!', ephemeral: true });
@@ -137,7 +128,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: `___ختفووووووووووووووو ${user}___` });
     }
 
-    // 4. فك البان (فك-بان)
     if (commandName === 'فك-بان') {
         if (!ALLOWED_USERS.includes(interaction.user.id)) {
             return interaction.reply({ content: '❌ هذا الأمر مخصص لك ولصديقك فقط!', ephemeral: true });
@@ -151,7 +141,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // 5. ترقيه
     if (commandName === 'ترقيه') {
         if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== PROMOTION_USER_ID) {
             return interaction.reply({ content: '❌ عذراً، أمر الترقية غير متاح لك!', ephemeral: true });
@@ -188,7 +177,6 @@ client.on('interactionCreate', async interaction => {
         });
     }
 
-    // 6. تخفيض
     if (commandName === 'تخفيض') {
         if (!ALLOWED_USERS.includes(interaction.user.id) && interaction.user.id !== PROMOTION_USER_ID) {
             return interaction.reply({ content: '❌ عذراً، أمر التخفيض غير متاح لك!', ephemeral: true });
@@ -226,4 +214,4 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login("MTU1MzIwMzgwNzg4MDc0MDkyNA.GS_hEe.qPKMqjRT8fxaOAarKfgmlsE2Iuq3lP_j47ixC4");
